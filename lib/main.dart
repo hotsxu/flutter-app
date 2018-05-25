@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_app/net/api.dart';
-import 'package:http/http.dart';
 
 void main() => runApp(new MyApp());
 
@@ -20,6 +19,10 @@ class MyApp extends StatelessWidget {
   }
 }
 
+final String _latest = "latest";
+final String _oldest = "oldest";
+final String _popular = "popular";
+
 class MyHomePage extends StatefulWidget {
   MyHomePage({Key key, this.title}) : super(key: key);
   final String title;
@@ -29,6 +32,16 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  List<Widget> _latestGrid = [];
+  List<Widget> _oldestGrid = [];
+  List<Widget> _popularGrid = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadData();
+  }
+
   Future<Null> _onRefresh() async {
     await Future.delayed(Duration(seconds: 5), () {});
   }
@@ -81,10 +94,11 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           body: new TabBarView(children: [
             new RefreshIndicator(
-              child: ListView.builder(
-                itemBuilder: (context, index) {
-                  return ListTile();
-                },
+              child: SingleChildScrollView(
+                child: Flow(
+                  delegate: _MyFlowDelegate(),
+                  children: _latestGrid,
+                ),
               ),
               onRefresh: _onRefresh,
             ),
@@ -95,8 +109,61 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   loadData() async {
-    Response response = await Api.get(null);
-    String json = response.body;
-    print(json);
+    List jsonObj = await Api.get(map: {"order_by": _latest});
+    print(jsonObj);
+    List images = jsonObj.map((json) {
+      return json["urls"]["thumb"];
+    }).toList();
+    setState(() {
+      if (images.isEmpty) {
+        return;
+      } else {
+        _latestGrid = images.map((image) {
+          return Image.network(
+            image,
+            width: context.size.width / 2.0,
+          );
+        }).toList();
+      }
+    });
+  }
+}
+
+class _MyFlowDelegate extends FlowDelegate {
+  final padding = 0.0;
+
+  @override
+  void paintChildren(FlowPaintingContext context) {
+    var tempWidth = 0.0;
+    var tempLeftHeight = 0.0;
+    var tempRightHeight = 0.0;
+    var half = context.size.width / 2;
+    for (int i = 0; i < context.childCount; i++) {
+      if (i % 2 == 0) {
+        tempWidth = 0.0;
+        context.paintChild(i,
+            transform: new Matrix4.translationValues(
+                tempWidth + padding, tempLeftHeight, 0.0));
+        tempLeftHeight += context.getChildSize(i).height;
+      } else {
+        tempWidth = half;
+        context.paintChild(i,
+            transform: new Matrix4.translationValues(
+                tempWidth + padding, tempRightHeight, 0.0));
+        tempRightHeight += context.getChildSize(i).height;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(FlowDelegate oldDelegate) {
+    return oldDelegate != this;
+  }
+
+  @override
+  BoxConstraints getConstraintsForChild(int i, BoxConstraints constraints) {
+    BoxConstraints boxConstraints = new BoxConstraints(
+        maxHeight: constraints.maxHeight, maxWidth: constraints.maxWidth);
+    return boxConstraints;
   }
 }
