@@ -63,8 +63,8 @@ class _MyHomePageState extends State<MyHomePage> {
             ],
             bottom: new TabBar(tabs: [
               Tab(text: "LASTEXT"),
-              Tab(text: "OLDEST"),
               Tab(text: "POPULAR"),
+              Tab(text: "OLDEST"),
             ]),
           ),
           drawer: Drawer(
@@ -92,8 +92,8 @@ class _MyHomePageState extends State<MyHomePage> {
               ],
             ),
           ),
-          body: new TabBarView(children: [
-            new RefreshIndicator(
+          body: TabBarView(children: [
+            RefreshIndicator(
               child: SingleChildScrollView(
                 child: Flow(
                   delegate: _MyFlowDelegate(),
@@ -102,26 +102,72 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
               onRefresh: _onRefresh,
             ),
-            Icon(Icons.map),
-            Icon(Icons.alarm),
+            RefreshIndicator(
+              child: SingleChildScrollView(
+                child: Flow(
+                  delegate: _MyFlowDelegate(),
+                  children: _popularGrid,
+                ),
+              ),
+              onRefresh: _onRefresh,
+            ),
+            RefreshIndicator(
+              child: SingleChildScrollView(
+                child: Flow(
+                  delegate: _MyFlowDelegate(),
+                  children: _oldestGrid,
+                ),
+              ),
+              onRefresh: _onRefresh,
+            ),
           ]),
         ));
   }
 
   loadData() async {
-    List jsonObj = await Api.get(map: {"order_by": _latest});
-    print(jsonObj);
-    List images = jsonObj.map((json) {
-      return json["urls"]["thumb"];
+    List latestJsonObj = await Api.get(map: {"order_by": _latest});
+    List oldestJsonObj = await Api.get(map: {"order_by": _oldest});
+    List popularJsonObj = await Api.get(map: {"order_by": _popular});
+
+    print(latestJsonObj);
+    List latestImages = latestJsonObj.map((json) {
+      return json["urls"]["small"];
     }).toList();
+
+    List popularImages = popularJsonObj.map((json) {
+      return json["urls"]["small"];
+    }).toList();
+
+    List oldestImages = oldestJsonObj.map((json) {
+      return json["urls"]["small"];
+    }).toList();
+
     setState(() {
-      if (images.isEmpty) {
+      if (latestImages.isEmpty) {
         return;
       } else {
-        _latestGrid = images.map((image) {
-          return Image.network(
-            image,
-            width: context.size.width / 2.0,
+        _latestGrid = latestImages.map((image) {
+          return Card(
+            child: Image.network(
+              image,
+            ),
+          );
+        }).toList();
+
+        _popularGrid = popularImages.map((image) {
+          return Card(
+            child: Image.network(
+              image,
+            ),
+          );
+        }).toList();
+
+        _oldestGrid = oldestImages.map((image) {
+          return Card(
+            child: Image.network(
+              image,
+              width: context.size.width / 2,
+            ),
           );
         }).toList();
       }
@@ -131,6 +177,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
 class _MyFlowDelegate extends FlowDelegate {
   final padding = 0.0;
+  double height = 0.0;
 
   @override
   void paintChildren(FlowPaintingContext context) {
@@ -142,16 +189,21 @@ class _MyFlowDelegate extends FlowDelegate {
       if (i % 2 == 0) {
         tempWidth = 0.0;
         context.paintChild(i,
-            transform: new Matrix4.translationValues(
+            transform: Matrix4.translationValues(
                 tempWidth + padding, tempLeftHeight, 0.0));
         tempLeftHeight += context.getChildSize(i).height;
       } else {
         tempWidth = half;
         context.paintChild(i,
-            transform: new Matrix4.translationValues(
+            transform: Matrix4.translationValues(
                 tempWidth + padding, tempRightHeight, 0.0));
         tempRightHeight += context.getChildSize(i).height;
       }
+    }
+    if (tempLeftHeight > tempRightHeight) {
+      height = tempLeftHeight;
+    } else {
+      height = tempRightHeight;
     }
   }
 
@@ -162,8 +214,14 @@ class _MyFlowDelegate extends FlowDelegate {
 
   @override
   BoxConstraints getConstraintsForChild(int i, BoxConstraints constraints) {
+    print(constraints.maxWidth);
     BoxConstraints boxConstraints = new BoxConstraints(
-        maxHeight: constraints.maxHeight, maxWidth: constraints.maxWidth);
+        maxHeight: constraints.maxHeight, maxWidth: constraints.maxWidth / 2);
     return boxConstraints;
+  }
+
+  @override
+  Size getSize(BoxConstraints constraints) {
+    return Size(constraints.maxWidth, height);
   }
 }

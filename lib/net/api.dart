@@ -13,9 +13,10 @@ class Api {
     String url = baseUrl + "?client_id=$_clientId";
     if (map != null) {
       map.forEach((key, value) {
-        url += "&$key$value";
+        url += "&$key=$value";
       });
     }
+    print("url--$url");
     var response = await http.get(url);
     return json.decode(response.body);
   }
